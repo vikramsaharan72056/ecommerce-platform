@@ -1,0 +1,50 @@
+// This is your Prisma schema file for notification-service
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model NotificationTemplate {
+  id        String   @id @default(uuid())
+  tenantId  String?  @map("tenant_id") // NULL = global default template
+  eventType String   @map("event_type") @db.VarChar(100)
+  channel   String   @db.VarChar(20) // email|sms|push
+  name      String   @db.VarChar(255)
+  subject   String?  @db.Text
+  bodyHtml  String?  @map("body_html") @db.Text
+  bodyText  String?  @map("body_text") @db.Text
+  variables Json? // expected variable names for validation
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  logs NotificationLog[]
+
+  @@map("notification_templates")
+}
+
+model NotificationLog {
+  id                String    @id @default(uuid())
+  tenantId          String    @map("tenant_id")
+  recipientUserId   String?   @map("recipient_user_id")
+  recipientAddress  String    @map("recipient_address") @db.Text // email/phone
+  channel           String    @db.VarChar(20)
+  eventType         String?   @map("event_type") @db.VarChar(100)
+  templateId        String?   @map("template_id")
+  status            String    @default("queued") @db.VarChar(20) // queued|sent|delivered|failed|bounced
+  provider          String?   @db.VarChar(50) // ses|sendgrid|twilio|mailhog
+  providerMessageId String?   @map("provider_message_id") @db.Text
+  errorMessage      String?   @map("error_message") @db.Text
+  sentAt            DateTime? @map("sent_at") @db.Timestamptz
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  template NotificationTemplate? @relation(fields: [templateId], references: [id])
+
+  @@index([tenantId, status, createdAt(sort: Desc)], name: "idx_notif_log_tenant_status")
+  @@map("notification_logs")
+}

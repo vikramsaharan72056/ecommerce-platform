@@ -1,0 +1,32 @@
+{
+  "name": "ecommerce-platform",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
+    "type-check": "turbo run type-check",
+    "docker:up": "docker compose -f infrastructure/docker-compose.yml up -d",
+    "docker:down": "docker compose -f infrastructure/docker-compose.yml down",
+    "docker:logs": "docker compose -f infrastructure/docker-compose.yml logs -f"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0",
+    "prettier": "^3.2.5",
+    "typescript": "^5.4.5",
+    "@types/node": "^20.12.7",
+    "eslint": "^9.1.1"
+  },
+  "packageManager": "npm@10.8.2",
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  }
+}

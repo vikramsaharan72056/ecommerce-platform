@@ -1,0 +1,11 @@
+FROM node:20-alpine AS dev
+WORKDIR /app
+COPY package*.json ./
+COPY apps/auth-service/package*.json ./apps/auth-service/
+COPY packages/shared-types/package*.json ./packages/shared-types/
+COPY packages/event-schemas/package*.json ./packages/event-schemas/
+RUN npm install
+COPY . .
+RUN npx prisma generate --schema=apps/auth-service/prisma/schema.prisma
+EXPOSE 3001
+CMD ["npm", "run", "dev", "--workspace=@ecom/auth-service"]

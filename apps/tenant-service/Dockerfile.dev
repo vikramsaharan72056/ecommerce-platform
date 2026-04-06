@@ -1,0 +1,11 @@
+FROM node:20-alpine AS dev
+WORKDIR /app
+COPY package*.json ./
+COPY apps/tenant-service/package*.json ./apps/tenant-service/
+COPY packages/shared-types/package*.json ./packages/shared-types/
+COPY packages/event-schemas/package*.json ./packages/event-schemas/
+RUN npm install
+COPY . .
+RUN npx prisma generate --schema=apps/tenant-service/prisma/schema.prisma
+EXPOSE 3002
+CMD ["npm", "run", "dev", "--workspace=@ecom/tenant-service"]

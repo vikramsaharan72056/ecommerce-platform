@@ -1,0 +1,29 @@
+node_modules/
+dist/
+build/
+.env*
+!.env.example
+*.pem
+*.key
+*.p12
+coverage/
+.turbo/
+*.log
+.DS_Store
+Thumbs.db
+.prisma/
+prisma/migrations/dev.db
+*.sqlite
+
+# IDEs and editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Docker
+docker-compose.override.yml
+
+# Next.js
+.next/
+out/
