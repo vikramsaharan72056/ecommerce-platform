@@ -18,7 +18,7 @@ export class NotificationConsumer implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    const env = this.config.get<string>('app.nodeEnv', 'development');
+    const env = this.config.get<string>('app.kafka.topicPrefix', 'dev');
 
     this.kafka = new Kafka({
       clientId: 'notification-service',

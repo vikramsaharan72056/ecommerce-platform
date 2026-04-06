@@ -12,6 +12,7 @@ export default registerAs('app', () => ({
     brokers: process.env.KAFKA_BROKERS?.split(',') ?? ['localhost:9092'],
     groupId: 'notification-service-group',
     clientId: 'notification-service',
+    topicPrefix: process.env.KAFKA_TOPIC_PREFIX ?? process.env.NODE_ENV ?? 'dev',
   },
 
   smtp: {
