@@ -10,6 +10,12 @@ import { v4 as uuidv4 } from 'uuid';
 const ROUTE_MAP: Record<string, { url: string; authRequired: boolean }> = {
   'auth': { url: 'http://auth-service:3001', authRequired: false },
   'tenants': { url: 'http://tenant-service:3002', authRequired: true },
+  'catalog': { url: 'http://catalog-service:3004', authRequired: false },
+  'cart': { url: 'http://cart-service:3005', authRequired: false },
+  'orders': { url: 'http://order-service:3006', authRequired: true },
+  'payments': { url: 'http://payment-service:3007', authRequired: true },
+  'inventory': { url: 'http://inventory-service:3008', authRequired: true },
+  'pricing': { url: 'http://pricing-service:3009', authRequired: true },
 };
 
 // Auth endpoints that DO require auth even under /auth
@@ -39,12 +45,52 @@ export class ProxyController {
     await this.proxyRequest(req, res, 'http://tenant-service:3002');
   }
 
+  @All('v1/catalog/*')
+  async proxyCatalog(@Req() req: Request, @Res() res: Response) {
+    await this.proxyRequest(req, res, 'http://catalog-service:3004');
+  }
+
+  @All('v1/cart/*')
+  async proxyCart(@Req() req: Request, @Res() res: Response) {
+    await this.proxyRequest(req, res, 'http://cart-service:3005');
+  }
+
+  @All('v1/orders/*')
+  @UseGuards(JwtValidationGuard)
+  async proxyOrders(@Req() req: Request, @Res() res: Response) {
+    await this.proxyRequest(req, res, 'http://order-service:3006');
+  }
+
+  @All('v1/payments/*')
+  async proxyPayments(@Req() req: Request, @Res() res: Response) {
+    // Payment webhooks don't use JWT auth
+    await this.proxyRequest(req, res, 'http://payment-service:3007');
+  }
+
+  @All('v1/inventory/*')
+  @UseGuards(JwtValidationGuard)
+  async proxyInventory(@Req() req: Request, @Res() res: Response) {
+    await this.proxyRequest(req, res, 'http://inventory-service:3008');
+  }
+
+  @All('v1/pricing/*')
+  @UseGuards(JwtValidationGuard)
+  async proxyPricing(@Req() req: Request, @Res() res: Response) {
+    await this.proxyRequest(req, res, 'http://pricing-service:3009');
+  }
+
   @All('health')
   async health(@Req() req: Request, @Res() res: Response) {
     const services = [
       { name: 'auth-service', url: 'http://auth-service:3001/health' },
       { name: 'tenant-service', url: 'http://tenant-service:3002/health' },
       { name: 'notification-service', url: 'http://notification-service:3003/health' },
+      { name: 'catalog-service', url: 'http://catalog-service:3004/health' },
+      { name: 'cart-service', url: 'http://cart-service:3005/health' },
+      { name: 'order-service', url: 'http://order-service:3006/health' },
+      { name: 'payment-service', url: 'http://payment-service:3007/health' },
+      { name: 'inventory-service', url: 'http://inventory-service:3008/health' },
+      { name: 'pricing-service', url: 'http://pricing-service:3009/health' },
     ];
 
     const results = await Promise.allSettled(

@@ -114,6 +114,55 @@ export interface TenantFeatureFlagChangedPayload {
   changedBy: string;
 }
 
+// ────────────────── Catalog Events ──────────────────
+
+export interface ProductCreatedPayload {
+  productId: string;
+  tenantId: string;
+  sellerId: string;
+  categoryId: string;
+  name: string;
+  status: string;
+}
+
+export interface ProductUpdatedPayload {
+  productId: string;
+  tenantId: string;
+  changedFields: string[];
+}
+
+export interface ProductStatusChangedPayload {
+  productId: string;
+  tenantId: string;
+  oldStatus: string;
+  newStatus: string;
+}
+
+export interface ProductDeletedPayload {
+  productId: string;
+  tenantId: string;
+}
+
+// ────────────────── Order Events ──────────────────
+
+export interface OrderCreatedPayload {
+  orderId: string;
+  orderNumber: string;
+  tenantId: string;
+  customerId: string;
+  sellerId: string;
+  totalCents: number;
+  itemCount: number;
+}
+
+export interface OrderStatusChangedPayload {
+  orderId: string;
+  orderNumber: string;
+  tenantId: string;
+  fromStatus: string;
+  toStatus: string;
+}
+
 // ────────────────── Typed Event Constructors ──────────────────
 
 import { v4 as uuidv4 } from 'uuid';
@@ -150,6 +199,10 @@ export const KAFKA_TOPICS = {
   AUTH_USER_EVENTS: (env: string) => `${env}-auth-user-events`,
   TENANT_EVENTS: (env: string) => `${env}-tenant-tenant-events`,
   NOTIFICATION_DISPATCH: (env: string) => `${env}-notification-dispatch-events`,
+  CATALOG_EVENTS: (env: string) => `${env}-catalog-events`,
+  ORDER_EVENTS: (env: string) => `${env}-order-events`,
+  INVENTORY_EVENTS: (env: string) => `${env}-inventory-events`,
+  CART_EVENTS: (env: string) => `${env}-cart-events`,
 } as const;
 
 export const AUTH_EVENT_TYPES = {
@@ -170,4 +223,38 @@ export const TENANT_EVENT_TYPES = {
   TENANT_SUSPENDED: 'tenant.suspended',
   TENANT_REACTIVATED: 'tenant.reactivated',
   TENANT_FEATURE_FLAG_CHANGED: 'tenant.feature_flag_changed',
+} as const;
+
+export const CATALOG_EVENT_TYPES = {
+  PRODUCT_CREATED: 'product.created',
+  PRODUCT_UPDATED: 'product.updated',
+  PRODUCT_STATUS_CHANGED: 'product.status_changed',
+  PRODUCT_DELETED: 'product.deleted',
+} as const;
+
+export const ORDER_EVENT_TYPES = {
+  ORDER_CREATED: 'order.created',
+  ORDER_CONFIRMED: 'order.confirmed',
+  ORDER_SHIPPED: 'order.shipped',
+  ORDER_DELIVERED: 'order.delivered',
+  ORDER_CANCELLED: 'order.cancelled',
+  ORDER_RETURN_REQUESTED: 'order.return_requested',
+  ORDER_REFUNDED: 'order.refunded',
+} as const;
+
+export const INVENTORY_EVENT_TYPES = {
+  INVENTORY_RESERVED: 'inventory.reserved',
+  INVENTORY_RELEASED: 'inventory.released',
+  INVENTORY_DEDUCTED: 'inventory.deducted',
+  INVENTORY_RESTOCKED: 'inventory.restocked',
+  LOW_STOCK_ALERT: 'inventory.low_stock',
+  OUT_OF_STOCK: 'inventory.out_of_stock',
+} as const;
+
+export const CART_EVENT_TYPES = {
+  CART_ITEM_ADDED: 'cart.item_added',
+  CART_ITEM_REMOVED: 'cart.item_removed',
+  CART_CLEARED: 'cart.cleared',
+  CART_MERGED: 'cart.merged',
+  CART_EXPIRED: 'cart.expired',
 } as const;

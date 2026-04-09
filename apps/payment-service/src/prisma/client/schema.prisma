@@ -1,0 +1,52 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider      = "prisma-client-js"
+  output        = "../src/prisma/client"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Payment {
+  id       String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  orderId  String @map("order_id") @db.Uuid
+  userId   String @map("user_id") @db.Uuid
+
+  amountCents BigInt @map("amount_cents")
+  currency    String @default("INR") @db.VarChar(3)
+
+  status String @default("pending") @db.VarChar(20) // pending|captured|failed|refunded|partially_refunded
+
+  provider          String  @db.VarChar(30) // razorpay|stripe
+  providerPaymentId String? @map("provider_payment_id") @db.VarChar(100)
+  providerOrderId   String? @map("provider_order_id") @db.VarChar(100)
+
+  paymentMethod String? @map("payment_method") @db.VarChar(30) // card|upi|netbanking
+
+  history Json? // Detailed log of attempts
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([tenantId, orderId])
+  @@map("payments")
+}
+
+model Refund {
+  id               String  @id @default(uuid()) @db.Uuid
+  paymentId        String  @map("payment_id") @db.Uuid
+  amountCents      BigInt  @map("amount_cents")
+  reason           String?
+  status           String  @db.VarChar(20)
+  providerRefundId String? @map("provider_refund_id")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("refunds")
+}

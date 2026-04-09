@@ -1,0 +1,24 @@
+FROM node:22-alpine
+
+WORKDIR /app
+
+# Install dependencies for Prisma
+RUN apk add --no-cache openssl libc6-compat
+
+COPY package*.json ./
+COPY tsconfig.base.json ./
+COPY apps/inventory-service/package*.json ./apps/inventory-service/
+COPY packages ./packages
+
+RUN npm install
+
+COPY apps/inventory-service ./apps/inventory-service
+COPY .keys ./.keys
+
+WORKDIR /app/apps/inventory-service
+
+RUN npx prisma generate
+
+EXPOSE 3008
+
+CMD ["npm", "run", "dev"]

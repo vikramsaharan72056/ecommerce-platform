@@ -22,6 +22,13 @@ volumes:
   grafana_data:
   prometheus_data:
   loki_data:
+  catalog_db_data:
+  es_data:
+  inventory_db_data:
+  order_db_data:
+  pricing_db_data:
+  cart_db_data:
+  payment_db_data:
 
 services:
 
@@ -87,6 +94,106 @@ services:
       - ecom_network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U notif_user -d notification_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  catalog-db:
+    image: postgres:16-alpine
+    container_name: ecom_catalog_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: catalog_db
+      POSTGRES_USER: catalog_user
+      POSTGRES_PASSWORD: catalog_secret_dev
+    ports:
+      - "5436:5432"
+    volumes:
+      - catalog_db_data:/var/lib/postgresql/data
+    networks:
+      - ecom_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U catalog_user -d catalog_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  inventory-db:
+    image: postgres:16-alpine
+    container_name: ecom_inventory_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: inventory_user
+      POSTGRES_PASSWORD: inventory_secret_dev
+      POSTGRES_DB: inventory_db
+    ports:
+      - "5437:5432"
+    volumes:
+      - inventory_db_data:/var/lib/postgresql/data
+    networks:
+      - ecom_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U inventory_user -d inventory_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  order-db:
+    image: postgres:16-alpine
+    container_name: ecom_order_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: order_user
+      POSTGRES_PASSWORD: order_secret_dev
+      POSTGRES_DB: order_db
+    ports:
+      - "5438:5432"
+    volumes:
+      - order_db_data:/var/lib/postgresql/data
+    networks:
+      - ecom_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U order_user -d order_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  pricing-db:
+    image: postgres:16-alpine
+    container_name: ecom_pricing_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pricing_user
+      POSTGRES_PASSWORD: pricing_secret_dev
+      POSTGRES_DB: pricing_db
+    ports:
+      - "5439:5432"
+    volumes:
+      - pricing_db_data:/var/lib/postgresql/data
+    networks:
+      - ecom_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pricing_user -d pricing_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  cart-db:
+    image: postgres:16-alpine
+    container_name: ecom_cart_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: cart_user
+      POSTGRES_PASSWORD: cart_secret_dev
+      POSTGRES_DB: cart_db
+    ports:
+      - "5440:5432"
+    volumes:
+      - cart_db_data:/var/lib/postgresql/data
+    networks:
+      - ecom_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cart_user -d cart_db"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -161,6 +268,12 @@ services:
       - kafka_data:/var/lib/kafka/data
     networks:
       - ecom_network
+    healthcheck:
+      test: ["CMD", "cub", "kafka-ready", "-b", "localhost:9092", "1", "20"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
 
   schema-registry:
     image: confluentinc/cp-schema-registry:7.6.0
@@ -186,13 +299,15 @@ services:
         condition: service_started
     entrypoint: ["/bin/sh", "-c"]
     command: |
-      "
-      echo 'Creating Phase 1 Kafka topics...'
+      /bin/sh -c "
+      echo 'Creating Phase 2 Kafka topics...'
       kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic dev-auth-user-events --partitions 6 --replication-factor 1
       kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic dev-tenant-tenant-events --partitions 3 --replication-factor 1
       kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic dev-notification-dispatch-events --partitions 3 --replication-factor 1
-      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic dev-auth-user-events-dlq --partitions 1 --replication-factor 1
-      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic dev-tenant-tenant-events-dlq --partitions 1 --replication-factor 1
+      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic dev-catalog-events --partitions 3 --replication-factor 1
+      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic dev-inventory-events --partitions 3 --replication-factor 1
+      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic dev-order-events --partitions 3 --replication-factor 1
+      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic dev-pricing-events --partitions 3 --replication-factor 1
       echo 'Topics created!'
       kafka-topics --bootstrap-server kafka:29092 --list
       "
@@ -403,5 +518,253 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo:4318
     volumes:
       - ../apps/api-gateway/src:/app/src
+    networks:
+      - ecom_network
+
+  catalog-service:
+    build:
+      context: ..
+      dockerfile: apps/catalog-service/Dockerfile.dev
+    container_name: ecom_catalog_service
+    restart: unless-stopped
+    depends_on:
+      catalog-db:
+        condition: service_started
+      redis:
+        condition: service_started
+      kafka:
+        condition: service_started
+    ports:
+      - "3004:3004"
+    env_file:
+      - ../apps/catalog-service/.env.development
+    environment:
+      DATABASE_URL: postgresql://catalog_user:catalog_secret_dev@catalog-db:5432/catalog_db
+      REDIS_URL: redis://:redis_secret_dev@redis:6379
+      KAFKA_BROKERS: kafka:29092
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo:4318
+    volumes:
+      - ../apps/catalog-service/src:/app/apps/catalog-service/src
+    networks:
+      - ecom_network
+
+  inventory-service:
+    build:
+      context: ..
+      dockerfile: apps/inventory-service/Dockerfile.dev
+    container_name: ecom_inventory_service
+    restart: unless-stopped
+    ports:
+      - "3008:3008"
+    depends_on:
+      inventory-db:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    env_file:
+      - ../apps/inventory-service/.env.development
+    environment:
+      DATABASE_URL: postgresql://inventory_user:inventory_secret_dev@inventory-db:5432/inventory_db
+      REDIS_URL: redis://:redis_secret_dev@redis:6379
+      KAFKA_BROKERS: kafka:29092
+    volumes:
+      - ../apps/inventory-service/src:/app/apps/inventory-service/src
+    networks:
+      - ecom_network
+
+  order-service:
+    build:
+      context: ..
+      dockerfile: apps/order-service/Dockerfile.dev
+    container_name: ecom_order_service
+    restart: unless-stopped
+    ports:
+      - "3006:3006"
+    depends_on:
+      order-db:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    env_file:
+      - ../apps/order-service/.env.development
+    environment:
+      DATABASE_URL: postgresql://order_user:order_secret_dev@order-db:5432/order_db
+      REDIS_URL: redis://:redis_secret_dev@redis:6379
+      KAFKA_BROKERS: kafka:29092
+    volumes:
+      - ../apps/order-service/src:/app/apps/order-service/src
+    networks:
+      - ecom_network
+
+  pricing-service:
+    build:
+      context: ..
+      dockerfile: apps/pricing-service/Dockerfile.dev
+    container_name: ecom_pricing_service
+    restart: unless-stopped
+    ports:
+      - "3009:3009"
+    depends_on:
+      pricing-db:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    env_file:
+      - ../apps/pricing-service/.env.development
+    environment:
+      DATABASE_URL: postgresql://pricing_user:pricing_secret_dev@pricing-db:5432/pricing_db
+      REDIS_URL: redis://:redis_secret_dev@redis:6379
+      KAFKA_BROKERS: kafka:29092
+    volumes:
+      - ../apps/pricing-service/src:/app/apps/pricing-service/src
+    networks:
+      - ecom_network
+
+  cart-service:
+    build:
+      context: ..
+      dockerfile: apps/cart-service/Dockerfile.dev
+    container_name: ecom_cart_service
+    restart: unless-stopped
+    ports:
+      - "3005:3005"
+    depends_on:
+      cart-db:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    env_file:
+      - ../apps/cart-service/.env.development
+    environment:
+      DATABASE_URL: postgresql://cart_user:cart_secret_dev@cart-db:5432/cart_db
+      REDIS_URL: redis://:redis_secret_dev@redis:6379
+      KAFKA_BROKERS: kafka:29092
+    volumes:
+      - ../apps/cart-service/src:/app/apps/cart-service/src
+    networks:
+      - ecom_network
+
+  payment-db:
+    image: postgres:16-alpine
+    container_name: ecom_payment_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: payment_user
+      POSTGRES_PASSWORD: payment_secret_dev
+      POSTGRES_DB: payment_db
+    ports:
+      - "5441:5432"
+    volumes:
+      - payment_db_data:/var/lib/postgresql/data
+    networks:
+      - ecom_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U payment_user -d payment_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  payment-service:
+    build:
+      context: ..
+      dockerfile: apps/payment-service/Dockerfile.dev
+    container_name: ecom_payment_service
+    restart: unless-stopped
+    ports:
+      - "3007:3007"
+    depends_on:
+      payment-db:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    env_file:
+      - ../apps/payment-service/.env.development
+    environment:
+      DATABASE_URL: postgresql://payment_user:payment_secret_dev@payment-db:5432/payment_db
+      REDIS_URL: redis://:redis_secret_dev@redis:6379
+      KAFKA_BROKERS: kafka:29092
+    volumes:
+      - ../apps/payment-service/src:/app/apps/payment-service/src
+    networks:
+      - ecom_network
+
+  storefront:
+    build:
+      context: ..
+      dockerfile: apps/storefront/Dockerfile.dev
+    container_name: ecom_storefront
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://api-gateway:3000/v1
+    volumes:
+      - ../apps/storefront:/app/apps/storefront
+      - /app/apps/storefront/node_modules
+    networks:
+      - ecom_network
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # SEARCH ENGINES — Elasticsearch 8 & Typesense
+  # ──────────────────────────────────────────────────────────────────────────
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.2
+    container_name: ecom_elasticsearch
+    restart: unless-stopped
+    environment:
+      - node.name=elasticsearch
+      - cluster.name=ecom_search
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.enabled=false
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    networks:
+      - ecom_network
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 9200 || curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.13.2
+    container_name: ecom_kibana
+    restart: unless-stopped
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    networks:
+      - ecom_network
+
+  typesense:
+    image: typesense/typesense:26.0
+    container_name: ecom_typesense
+    restart: unless-stopped
+    ports:
+      - "8108:8108"
+    environment:
+      - TYPESENSE_API_KEY=typesense_secret_dev
+      - TYPESENSE_DATA_DIR=/data
+    volumes:
+      - ./typesense/data:/data
     networks:
       - ecom_network

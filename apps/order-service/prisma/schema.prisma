@@ -1,0 +1,78 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider      = "prisma-client-js"
+  output        = "../src/prisma/client"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Order {
+  id              String   @id @default(uuid()) @db.Uuid
+  tenantId        String   @map("tenant_id") @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  orderNumber     String   @unique @map("order_number") @db.VarChar(50)
+  
+  status          String   @default("pending") @db.VarChar(20) // pending|confirmed|shipped|delivered|cancelled|returned
+  paymentStatus   String   @default("unpaid") @map("payment_status") @db.VarChar(20) // unpaid|paid|failed|refunded
+  
+  currency        String   @default("INR") @db.VarChar(3)
+  totalCents      BigInt   @map("total_cents")
+  subtotalCents   BigInt   @map("subtotal_cents")
+  taxCents        BigInt   @map("tax_cents")
+  shippingCents   BigInt   @map("shipping_cents")
+  discountCents   BigInt   @default(0) @map("discount_cents")
+
+  paymentMethod   String?  @map("payment_method") @db.VarChar(20)
+  transactionId   String?  @unique @map("transaction_id")
+  
+  shippingAddress Json?    @map("shipping_address")
+  billingAddress  Json?    @map("billing_address")
+
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  
+  items           OrderItem[]
+  history         OrderHistory[]
+
+  @@index([tenantId, userId])
+  @@index([status])
+  @@map("orders")
+}
+
+model OrderItem {
+  id              String   @id @default(uuid()) @db.Uuid
+  orderId         String   @map("order_id") @db.Uuid
+  tenantId        String   @map("tenant_id") @db.Uuid
+  productId       String   @map("product_id") @db.Uuid
+  variantId       String   @map("variant_id") @db.Uuid
+  sku             String   @db.VarChar(100)
+  name            String   @db.VarChar(255)
+  quantity        Int
+  priceCents      BigInt   @map("price_cents")
+  totalCents      BigInt   @map("total_cents")
+  
+  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("order_items")
+}
+
+model OrderHistory {
+  id          String   @id @default(uuid()) @db.Uuid
+  orderId     String   @map("order_id") @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  fromStatus  String?  @map("from_status")
+  toStatus    String   @map("to_status")
+  note        String?  @db.Text
+  changedBy   String   @map("changed_by")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("order_history")
+}

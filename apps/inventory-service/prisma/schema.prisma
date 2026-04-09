@@ -1,0 +1,69 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider      = "prisma-client-js"
+  output        = "../src/prisma/client"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Stock {
+  id                String   @id @default(uuid()) @db.Uuid
+  tenantId          String   @map("tenant_id") @db.Uuid
+  sku               String   @db.VarChar(100)
+  productId         String   @map("product_id") @db.Uuid
+  variantId         String?  @map("variant_id") @db.Uuid
+  
+  availableQuantity Int      @default(0) @map("available_quantity")
+  reservedQuantity  Int      @default(0) @map("reserved_quantity")
+  safetyStock       Int      @default(0) @map("safety_stock")
+  
+  locationId        String?  @map("location_id") @db.Uuid // For warehouse/store
+  
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  transactions      StockTransaction[]
+  reservations      StockReservation[]
+
+  @@unique([tenantId, sku])
+  @@index([tenantId, productId])
+  @@map("stocks")
+}
+
+model StockTransaction {
+  id           String   @id @default(uuid()) @db.Uuid
+  stockId      String   @map("stock_id") @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  type         String   @db.VarChar(20) // addition|deduction|reservation_fulfillment|return
+  quantity     Int
+  referenceId  String?  @map("reference_id") // OrderID, ReturnID, etc.
+  reason       String?  @db.Text
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  createdBy    String?  @map("created_by")
+  
+  stock        Stock    @relation(fields: [stockId], references: [id], onDelete: Cascade)
+
+  @@map("stock_transactions")
+}
+
+model StockReservation {
+  id          String    @id @default(uuid()) @db.Uuid
+  stockId     String    @map("stock_id") @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  orderId     String?   @map("order_id") @db.Uuid
+  quantity    Int
+  status      String    @default("pending") @db.VarChar(20) // pending|fulfilled|expired|cancelled
+  expiresAt   DateTime? @map("expires_at") @db.Timestamptz
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  
+  stock       Stock     @relation(fields: [stockId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt, status])
+  @@map("stock_reservations")
+}

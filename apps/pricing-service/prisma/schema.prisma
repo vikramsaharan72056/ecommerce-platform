@@ -1,0 +1,66 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider      = "prisma-client-js"
+  output        = "../src/prisma/client"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Promotion {
+  id                String   @id @default(uuid()) @db.Uuid
+  tenantId          String   @map("tenant_id") @db.Uuid
+  name              String   @db.VarChar(255)
+  type              String   @db.VarChar(30) // percentage|fixed_amount|buy_x_get_y|free_shipping|flash_sale
+  appliesTo         String   @map("applies_to") @db.VarChar(30) // all|category|product|variant|cart
+  targetIds         String[] @map("target_ids") @db.Uuid
+  
+  discountType      String?  @map("discount_type") @db.VarChar(20) // percentage|fixed
+  discountValue     Decimal? @map("discount_value") @db.Decimal(10,2)
+  
+  minOrderCents     BigInt?  @map("min_order_cents")
+  maxDiscountCents  BigInt?  @map("max_discount_cents")
+  
+  startsAt          DateTime @map("starts_at") @db.Timestamptz
+  endsAt            DateTime? @map("ends_at") @db.Timestamptz
+  
+  usageLimit        Int?     @map("usage_limit")
+  usagePerUser      Int?     @map("usage_per_user")
+  usageCount        Int      @default(0) @map("usage_count")
+  
+  isActive          Boolean  @default(true) @map("is_active")
+  priority          Int      @default(0)
+  stackable         Boolean  @default(false)
+  
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  coupons           Coupon[]
+
+  @@map("promotions")
+}
+
+model Coupon {
+  id            String    @id @default(uuid()) @db.Uuid
+  tenantId      String    @map("tenant_id") @db.Uuid
+  promotionId   String    @map("promotion_id") @db.Uuid
+  code          String    @db.VarChar(50)
+  description   String?   @db.Text
+  usageLimit    Int?      @map("usage_limit")
+  usagePerUser  Int       @default(1) @map("usage_per_user")
+  usageCount    Int       @default(0) @map("usage_count")
+  isActive      Boolean   @default(true) @map("is_active")
+  
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  promotion     Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, code])
+  @@map("coupons")
+}
